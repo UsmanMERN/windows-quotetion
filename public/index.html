@@ -161,6 +161,7 @@
         }
 
         input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
             appearance: none;
             width: 20px;
             height: 20px;
@@ -437,6 +438,7 @@
 
         .window-visual {
             width: 100%;
+            min-width: 300px;
             height: 400px;
             border: 2px solid #d0d0d0;
             border-radius: 12px;
@@ -531,6 +533,7 @@
 
             .window-visual {
                 height: 300px;
+                min-width: 250px;
             }
 
             .nav-buttons {
@@ -872,15 +875,17 @@
                             </select>
                         </div>
                         <label for="window-height-${roomId}-${i}">Total Height (mm):</label>
-                        <input type="number" id="window-height-${roomId}-${i}" value="1800" oninput="drawWindow(${roomId}, ${i}); autoCalculate();">
+                        <input type="number" id="window-height-${roomId}-${i}" value="1800" min="1" step="1" oninput="drawWindow(${roomId}, ${i}); autoCalculate();">
                         <label for="window-width-${roomId}-${i}">Total Width (mm):</label>
-                        <input type="number" id="window-width-${roomId}-${i}" value="1200" oninput="drawWindow(${roomId}, ${i}); autoCalculate();">
+                        <input type="number" id="window-width-${roomId}-${i}" value="1200" min="1" step="1" oninput="drawWindow(${roomId}, ${i}); autoCalculate();">
                         
                         <div id="${controlsId}" class="dimension-controls"></div>
                     </div>
                     <div id="${containerId}" class="window-visual"></div>
                 `;
                 windowsContainer.appendChild(windowDiv);
+                // Force reflow to ensure container dimensions are calculated
+                windowDiv.offsetHeight;
                 const selectEl = document.getElementById(selectId);
                 createCustomSelect(selectEl, customSelectId);
                 selectEl.addEventListener('change', () => {
@@ -894,55 +899,44 @@
             autoCalculate();
         }
 
-        // --- FIXED: Auto-adjust sliders to maintain total dimensions ---
-        function adjustSliders(roomId, i, sliderType, changedIndex, newValue) {
-            const style = document.getElementById(`window-style-${roomId}-${i}`)?.value || 'A';
+        // --- FIXED: New, simplified slider handling logic ---
+        function handleSliderInput(slider, roomId, windowIndex, sliderType, splitIndex) {
+            // 1. Get all sliders of the same type (h or v) for this window
+            const allSliders = [];
+            const style = document.getElementById(`window-style-${roomId}-${windowIndex}`).value;
             const rows = style.split('/');
-            let numSplits;
-            let oldSliders = [];
-            if (sliderType === 'v') {
-                numSplits = rows.length - 1;
-                if (numSplits <= 0) return;
-                for (let j = 1; j <= numSplits; j++) {
-                    const slider = document.getElementById(`v-split-${roomId}-${i}-${j}`);
-                    if (slider) oldSliders.push({ id: j, value: parseInt(slider.value) });
-                }
-            } else { // 'h'
-                const panesInFirstRow = rows[0].split('-');
-                numSplits = panesInFirstRow.length - 1;
-                if (numSplits <= 0) return;
-                for (let j = 1; j <= numSplits; j++) {
-                    const slider = document.getElementById(`h-split-${roomId}-${i}-${j}`);
-                    if (slider) oldSliders.push({ id: j, value: parseInt(slider.value) });
+            const panes = rows[0].split('-');
+            const numSplits = sliderType === 'v' ? rows.length - 1 : panes.length - 1;
+
+            for (let j = 1; j <= numSplits; j++) {
+                const currentSlider = document.getElementById(`${sliderType}-split-${roomId}-${windowIndex}-${j}`);
+                if (currentSlider) {
+                    allSliders.push(currentSlider);
                 }
             }
-            if (oldSliders.length === 0 || changedIndex > oldSliders.length) return;
-            oldSliders.sort((a, b) => a.id - b.id);
-            const oldChangedValue = oldSliders[changedIndex - 1].value;
-            const oldRemaining = 100 - oldChangedValue;
-            if (oldRemaining <= 0) return; // Avoid divide by zero
-            oldSliders[changedIndex - 1].value = parseInt(newValue);
-            const newChangedValue = oldSliders[changedIndex - 1].value;
-            const newRemaining = 100 - newChangedValue;
-            // Adjust subsequent sliders proportionally
-            for (let k = changedIndex + 1; k <= numSplits; k++) {
-                const idx = k - 1;
-                const oldRel = (oldSliders[idx].value - oldChangedValue) / oldRemaining;
-                const newPos = newChangedValue + oldRel * newRemaining;
-                oldSliders[idx].value = Math.max(newChangedValue + 10, Math.min(90, newPos));
-            }
-            // Update DOM sliders and values
-            oldSliders.forEach(s => {
-                const sliderId = `${sliderType}-split-${roomId}-${i}-${s.id}`;
-                const slider = document.getElementById(sliderId);
-                if (slider) {
-                    slider.value = s.value;
-                    updateSliderValue(sliderId, s.value);
-                }
-            });
-            drawWindow(roomId, i);
+
+            // 2. Enforce order (sliders can't cross)
+            let currentValue = parseInt(slider.value);
+            const minGap = 5; // Minimum 5% gap between sliders
+
+            // splitIndex is 1-based, array is 0-based
+            const prevSlider = allSliders[splitIndex - 2];
+            const nextSlider = allSliders[splitIndex];
+
+            const minVal = prevSlider ? parseInt(prevSlider.value) + minGap : 10;
+            const maxVal = nextSlider ? parseInt(nextSlider.value) - minGap : 90;
+
+            currentValue = Math.max(minVal, Math.min(currentValue, maxVal));
+            slider.value = currentValue; // Update the slider's actual value if it was clamped
+
+            // 3. Update the percentage display
+            updateSliderValue(slider.id, currentValue);
+
+            // 4. Redraw the window and recalculate price
+            drawWindow(roomId, windowIndex);
             autoCalculate();
         }
+
 
         // --- Function to generate sliders for pane/row dimensions ---
         function updateDimensionControls(roomId, i) {
@@ -960,8 +954,8 @@
                     const sliderValue = ((100 * j / rows.length).toFixed(0));
                     const sliderId = `v-split-${roomId}-${i}-${j}`;
                     controlsContainer.innerHTML += `
-                        <label for="${sliderId}">Transom ${j} Position (${sliderValue}%): <span id="${sliderId}-value">${sliderValue}%</span></label>
-                        <input type="range" id="${sliderId}" min="10" max="90" value="${sliderValue}" oninput="adjustSliders(${roomId}, ${i}, 'v', ${j}, this.value);">
+                        <label for="${sliderId}">Transom ${j} Position: <span id="${sliderId}-value">${sliderValue}%</span></label>
+                        <input type="range" id="${sliderId}" min="10" max="90" value="${sliderValue}" oninput="handleSliderInput(this, ${roomId}, ${i}, 'v', ${j})">
                     `;
                 }
             }
@@ -972,11 +966,15 @@
                     const sliderValue = ((100 * j / panesInFirstRow.length).toFixed(0));
                     const sliderId = `h-split-${roomId}-${i}-${j}`;
                     controlsContainer.innerHTML += `
-                        <label for="${sliderId}">Mullion ${j} Position (${sliderValue}%): <span id="${sliderId}-value">${sliderValue}%</span></label>
-                        <input type="range" id="${sliderId}" min="10" max="90" value="${sliderValue}" oninput="adjustSliders(${roomId}, ${i}, 'h', ${j}, this.value);">
+                        <label for="${sliderId}">Mullion ${j} Position: <span id="${sliderId}-value">${sliderValue}%</span></label>
+                        <input type="range" id="${sliderId}" min="10" max="90" value="${sliderValue}" oninput="handleSliderInput(this, ${roomId}, ${i}, 'h', ${j})">
                     `;
                 }
             }
+            // Add event listeners to update the value display on initial load too.
+            controlsContainer.querySelectorAll('input[type="range"]').forEach(slider => {
+                updateSliderValue(slider.id, slider.value);
+            });
         }
 
         // --- Update slider value display ---
@@ -985,33 +983,40 @@
             if (valueSpan) valueSpan.textContent = value + '%';
         }
 
-        // --- FIXED: Professional Enhanced Visualizer with per-row pane widths ---
+        // --- Enhanced Visualizer ---
         function drawWindow(roomId, i) {
             const style = document.getElementById(`window-style-${roomId}-${i}`)?.value || 'A';
-            const totalHeight = parseFloat(document.getElementById(`window-height-${roomId}-${i}`)?.value) || 1800;
-            const totalWidth = parseFloat(document.getElementById(`window-width-${roomId}-${i}`)?.value) || 1200;
+            let totalHeight = parseFloat(document.getElementById(`window-height-${roomId}-${i}`)?.value) || 1800;
+            let totalWidth = parseFloat(document.getElementById(`window-width-${roomId}-${i}`)?.value) || 1200;
+
+            totalHeight = Math.max(100, totalHeight);
+            totalWidth = Math.max(100, totalWidth);
             const frameColor = document.getElementById('frame-color').value;
             const containerId = `konva-container-${roomId}-${i}`;
             const container = document.getElementById(containerId);
             if (!container) return;
             container.innerHTML = '';
 
-            const stageWidth = container.offsetWidth, stageHeight = container.clientHeight || 400, padding = 40;
+            let stageWidth = container.offsetWidth;
+            let stageHeight = container.clientHeight || 400;
+            stageWidth = Math.max(100, stageWidth);
+            stageHeight = Math.max(100, stageHeight);
+
+            const padding = 40;
             const drawWidth = stageWidth - padding * 2, drawHeight = stageHeight - padding * 2 - 60;
             const scale = Math.min(drawWidth / totalWidth, drawHeight / totalHeight);
-            const winWidth = totalWidth * scale, winHeight = totalHeight * scale;
+            const winWidth = Math.max(10, totalWidth * scale), winHeight = Math.max(10, totalHeight * scale);
             const offsetX = (stageWidth - winWidth) / 2 + padding / 2, offsetY = (stageHeight - winHeight) / 2 + padding / 2 - 10;
 
             const stage = new Konva.Stage({ container: containerId, width: stageWidth, height: stageHeight });
             const layer = new Konva.Layer();
             stage.add(layer);
 
-            // Enhanced main frame with shadow and professional stroke
             const frameShadow = new Konva.Rect({
                 x: offsetX + 2,
                 y: offsetY + 2,
-                width: winWidth,
-                height: winHeight,
+                width: Math.max(0, winWidth),
+                height: Math.max(0, winHeight),
                 fill: 'rgba(0, 0, 0, 0.1)',
                 cornerRadius: 4
             });
@@ -1020,8 +1025,8 @@
             const mainFrame = new Konva.Rect({
                 x: offsetX,
                 y: offsetY,
-                width: winWidth,
-                height: winHeight,
+                width: Math.max(0, winWidth),
+                height: Math.max(0, winHeight),
                 stroke: frameColor,
                 strokeWidth: 4,
                 fill: 'rgba(255, 255, 255, 0.8)',
@@ -1035,91 +1040,72 @@
             const rows = style.split('/');
             const panesPerRow = rows.map(r => r.split('-'));
 
-            // Get split percentages from sliders
+            // Get vertical split percentages from sliders
             let vSplitPercentages = [0];
             const numVSliders = rows.length - 1;
             for (let j = 1; j <= numVSliders; j++) {
-                vSplitPercentages.push(parseInt(document.getElementById(`v-split-${roomId}-${i}-${j}`)?.value || (100 * j / (numVSliders + 1))) / 100);
+                const slider = document.getElementById(`v-split-${roomId}-${i}-${j}`);
+                const value = slider ? parseInt(slider.value) : (100 * j / (numVSliders + 1));
+                vSplitPercentages.push(Math.max(0, Math.min(100, value)) / 100);
             }
             vSplitPercentages.push(1);
             vSplitPercentages.sort((a, b) => a - b);
 
-            // Global h splits based on first row
+            // Get horizontal split percentages from sliders (based on the first row)
             let hSplitPercentages = [0];
             const panesInFirstRow = panesPerRow[0] || ['F'];
             const numHSliders = panesInFirstRow.length - 1;
             for (let j = 1; j <= numHSliders; j++) {
-                hSplitPercentages.push(parseInt(document.getElementById(`h-split-${roomId}-${i}-${j}`)?.value || (100 * j / (numHSliders + 1))) / 100);
+                const slider = document.getElementById(`h-split-${roomId}-${i}-${j}`);
+                const value = slider ? parseInt(slider.value) : (100 * j / (numHSliders + 1));
+                hSplitPercentages.push(Math.max(0, Math.min(100, value)) / 100);
             }
             hSplitPercentages.push(1);
             hSplitPercentages.sort((a, b) => a - b);
 
+
             // Calculate absolute row heights
             let rowHeights = [];
             for (let j = 0; j < vSplitPercentages.length - 1; j++) {
-                rowHeights.push(winHeight * (vSplitPercentages[j + 1] - vSplitPercentages[j]));
+                rowHeights.push(Math.max(1, winHeight * (vSplitPercentages[j + 1] - vSplitPercentages[j])));
             }
 
-            // Draw rows and panes with professional lines
+            // Calculate absolute pane widths
+            let paneWidths = [];
+            for (let j = 0; j < hSplitPercentages.length - 1; j++) {
+                paneWidths.push(Math.max(1, winWidth * (hSplitPercentages[j + 1] - hSplitPercentages[j])));
+            }
+
             let currentY = offsetY;
             rows.forEach((row, r) => {
-                const rowHeight = rowHeights[r] || (winHeight / rows.length);
-                // Enhanced transom
+                const rowHeight = rowHeights[r] || Math.max(1, winHeight / rows.length);
                 if (r > 0) {
                     const transom = new Konva.Line({
                         points: [offsetX, currentY, offsetX + winWidth, currentY],
-                        stroke: frameColor,
-                        strokeWidth: 3,
-                        lineCap: 'round',
-                        shadowColor: 'rgba(0, 0, 0, 0.1)',
-                        shadowBlur: 4
+                        stroke: frameColor, strokeWidth: 3, lineCap: 'round',
+                        shadowColor: 'rgba(0, 0, 0, 0.1)', shadowBlur: 4
                     });
                     layer.add(transom);
                 }
 
-                // FIXED: Compute pane widths per row
-                const panes = panesPerRow[r] || ['F'];
-                const numPanes = panes.length;
-                let rowPaneFractions = [];
-                if (numPanes === 1) {
-                    rowPaneFractions = [1];
-                } else {
-                    const expectedNumPanes = hSplitPercentages.length;
-                    if (numPanes === expectedNumPanes) {
-                        for (let pp = 0; pp < numPanes; pp++) {
-                            rowPaneFractions.push(hSplitPercentages[pp + 1] - hSplitPercentages[pp]);
-                        }
-                    } else {
-                        // Equal split for this row
-                        for (let pp = 0; pp < numPanes; pp++) {
-                            rowPaneFractions.push(1 / numPanes);
-                        }
-                    }
-                }
-                let rowPaneWidths = rowPaneFractions.map(f => winWidth * f);
-
                 let currentX = offsetX;
+                const panes = panesPerRow[r] || ['F'];
                 panes.forEach((paneType, p) => {
-                    const paneWidth = rowPaneWidths[p] || (winWidth / numPanes);
-                    // Enhanced mullion
+                    // For rows that don't match the main horizontal split, divide equally
+                    const paneWidth = panes.length === paneWidths.length ? paneWidths[p] : Math.max(1, winWidth / panes.length);
+
                     if (p > 0) {
                         const mullion = new Konva.Line({
                             points: [currentX, currentY, currentX, currentY + rowHeight],
-                            stroke: frameColor,
-                            strokeWidth: 3,
-                            lineCap: 'round',
-                            shadowColor: 'rgba(0, 0, 0, 0.1)',
-                            shadowBlur: 4
+                            stroke: frameColor, strokeWidth: 3, lineCap: 'round',
+                            shadowColor: 'rgba(0, 0, 0, 0.1)', shadowBlur: 4
                         });
                         layer.add(mullion);
                     }
 
-                    // Professional pane glass with subtle gradient
                     const glass = new Konva.Rect({
-                        x: currentX + 2,
-                        y: currentY + 2,
-                        width: paneWidth - 4,
-                        height: rowHeight - 4,
+                        x: currentX + 2, y: currentY + 2,
+                        width: Math.max(0, paneWidth - 4), height: Math.max(0, rowHeight - 4),
                         fillLinearGradientStartPoint: { x: 0, y: 0 },
                         fillLinearGradientEndPoint: { x: paneWidth, y: rowHeight },
                         fillLinearGradientColorStops: [0, 'rgba(255,255,255,0.9)', 1, 'rgba(200,220,255,0.7)'],
@@ -1127,137 +1113,48 @@
                     });
                     layer.add(glass);
 
-                    // Enhanced professional symbols
-                    const symbolSize = Math.min(paneWidth, rowHeight) * 0.4;
+                    const symbolSize = Math.max(0, Math.min(paneWidth, rowHeight) * 0.4);
                     const centerX = currentX + paneWidth / 2;
                     const centerY = currentY + rowHeight / 2;
                     const iconGroup = new Konva.Group({ x: centerX, y: centerY });
 
                     if (paneType === 'A') {
-                        // Professional Awning: Hinged top-open indication with clean lines
                         const awningPath = new Konva.Path({
-                            data: 'M -30 20 L 0 -20 L 30 20 Z', // Trapezoid for open awning
-                            fill: '#4a90e2',
-                            stroke: '#2c5aa0',
-                            strokeWidth: 2,
-                            scaleX: symbolSize / 30,
-                            scaleY: symbolSize / 30
+                            data: 'M -30 20 L 0 -20 L 30 20 Z', fill: '#4a90e2', stroke: '#2c5aa0', strokeWidth: 2,
+                            scaleX: symbolSize / 30, scaleY: symbolSize / 30
                         });
                         iconGroup.add(awningPath);
-                        // Hinge line
-                        const hinge = new Konva.Line({
-                            points: [-40 * (symbolSize / 30), 20 * (symbolSize / 30), -20 * (symbolSize / 30), 20 * (symbolSize / 30)],
-                            stroke: '#2c5aa0',
-                            strokeWidth: 3 * (symbolSize / 30),
-                            lineCap: 'round'
-                        });
-                        iconGroup.add(hinge);
                     } else if (paneType === 'S') {
-                        // Professional Sliding: Clean horizontal arrows with tracks
-                        // Track lines
-                        const trackTop = new Konva.Line({
-                            points: [-symbolSize / 2, -symbolSize / 4, symbolSize / 2, -symbolSize / 4],
-                            stroke: '#4a90e2',
-                            strokeWidth: 4 * (symbolSize / 100),
-                            lineCap: 'round'
-                        });
+                        const trackTop = new Konva.Line({ points: [-symbolSize / 2, -symbolSize / 4, symbolSize / 2, -symbolSize / 4], stroke: '#4a90e2', strokeWidth: 4 * (symbolSize / 100), lineCap: 'round' });
                         iconGroup.add(trackTop);
-                        const trackBottom = new Konva.Line({
-                            points: [-symbolSize / 2, symbolSize / 4, symbolSize / 2, symbolSize / 4],
-                            stroke: '#4a90e2',
-                            strokeWidth: 4 * (symbolSize / 100),
-                            lineCap: 'round'
-                        });
+                        const trackBottom = new Konva.Line({ points: [-symbolSize / 2, symbolSize / 4, symbolSize / 2, symbolSize / 4], stroke: '#4a90e2', strokeWidth: 4 * (symbolSize / 100), lineCap: 'round' });
                         iconGroup.add(trackBottom);
-                        // Arrows
-                        const arrowRight = new Konva.Arrow({
-                            points: [0, 0, 30 * (symbolSize / 50), 0],
-                            pointerLength: 8 * (symbolSize / 50),
-                            pointerWidth: 6 * (symbolSize / 50),
-                            fill: '#4a90e2',
-                            stroke: '#4a90e2',
-                            strokeWidth: 2 * (symbolSize / 50),
-                            scaleX: symbolSize / 50
-                        });
+                        const arrowRight = new Konva.Arrow({ points: [0, 0, 30 * (symbolSize / 50), 0], pointerLength: 8 * (symbolSize / 50), pointerWidth: 6 * (symbolSize / 50), fill: '#4a90e2', stroke: '#4a90e2', strokeWidth: 2 * (symbolSize / 50), scaleX: symbolSize / 50 });
                         iconGroup.add(arrowRight);
-                        const arrowLeft = new Konva.Arrow({
-                            points: [0, 0, 30 * (symbolSize / 50), 0],
-                            pointerLength: 8 * (symbolSize / 50),
-                            pointerWidth: 6 * (symbolSize / 50),
-                            fill: '#4a90e2',
-                            stroke: '#4a90e2',
-                            strokeWidth: 2 * (symbolSize / 50),
-                            scaleX: -(symbolSize / 50)
-                        });
-                        iconGroup.add(arrowLeft);
                     } else if (paneType === 'F') {
-                        // Professional Fixed: Clean crosshair with subtle grid
-                        const cross1 = new Konva.Line({
-                            points: [0, -symbolSize / 3, 0, symbolSize / 3],
-                            stroke: '#4a90e2',
-                            strokeWidth: 3 * (symbolSize / 100),
-                            lineCap: 'round'
-                        });
+                        const cross1 = new Konva.Line({ points: [0, -symbolSize / 3, 0, symbolSize / 3], stroke: '#4a90e2', strokeWidth: 3 * (symbolSize / 100), lineCap: 'round' });
                         iconGroup.add(cross1);
-                        const cross2 = new Konva.Line({
-                            points: [-symbolSize / 3, 0, symbolSize / 3, 0],
-                            stroke: '#4a90e2',
-                            strokeWidth: 3 * (symbolSize / 100),
-                            lineCap: 'round'
-                        });
+                        const cross2 = new Konva.Line({ points: [-symbolSize / 3, 0, symbolSize / 3, 0], stroke: '#4a90e2', strokeWidth: 3 * (symbolSize / 100), lineCap: 'round' });
                         iconGroup.add(cross2);
-                        // Subtle grid lines
-                        const grid1 = new Konva.Line({
-                            points: [-symbolSize / 6, -symbolSize / 6, symbolSize / 6, symbolSize / 6],
-                            stroke: '#7faced',
-                            strokeWidth: 1 * (symbolSize / 100),
-                            lineDash: [2 * (symbolSize / 100), 2 * (symbolSize / 100)]
-                        });
-                        iconGroup.add(grid1);
-                        const grid2 = new Konva.Line({
-                            points: [-symbolSize / 6, symbolSize / 6, symbolSize / 6, -symbolSize / 6],
-                            stroke: '#7faced',
-                            strokeWidth: 1 * (symbolSize / 100),
-                            lineDash: [2 * (symbolSize / 100), 2 * (symbolSize / 100)]
-                        });
-                        iconGroup.add(grid2);
                     }
 
                     layer.add(iconGroup);
 
-                    // FIXED: Professional pane dimension labels with actual per-pane sizes
-                    // Width label below pane
-                    const actualPaneWidth = totalWidth * (paneWidth / winWidth);
-                    const widthText = new Konva.Text({
-                        x: currentX + paneWidth / 2,
-                        y: currentY + rowHeight + 25,
-                        text: `${Math.round(actualPaneWidth)} mm`,
-                        fontSize: 12,
-                        fill: '#2c3e50',
-                        width: paneWidth,
-                        align: 'center',
-                        fontFamily: 'Inter',
-                        fontStyle: '600',
-                        shadowColor: 'rgba(0,0,0,0.1)',
-                        shadowBlur: 2
-                    });
-                    layer.add(widthText);
+                    const actualPaneWidth = Math.max(1, totalWidth * (paneWidth / winWidth));
+                    if (r === rows.length - 1) { // Show width labels only on the last row
+                        const widthText = new Konva.Text({
+                            x: currentX + paneWidth / 2, y: currentY + rowHeight + 15, text: `${Math.round(actualPaneWidth)}`,
+                            fontSize: 12, fill: '#2c3e50', width: paneWidth, align: 'center', fontFamily: 'Inter', fontStyle: '600'
+                        });
+                        layer.add(widthText);
+                    }
 
-                    // Height label left of pane (for first column only to avoid clutter)
+
                     if (p === 0) {
-                        const actualRowHeight = totalHeight * (rowHeights[r] / winHeight);
+                        const actualRowHeight = Math.max(1, totalHeight * (rowHeight / winHeight));
                         const heightText = new Konva.Text({
-                            x: currentX - 45,
-                            y: currentY + rowHeight / 2,
-                            text: `${Math.round(actualRowHeight)} mm`,
-                            fontSize: 12,
-                            fill: '#2c3e50',
-                            rotation: -90,
-                            offsetY: -25,
-                            fontFamily: 'Inter',
-                            fontStyle: '600',
-                            shadowColor: 'rgba(0,0,0,0.1)',
-                            shadowBlur: 2
+                            x: currentX - 10, y: currentY + rowHeight / 2, text: `${Math.round(actualRowHeight)}`,
+                            fontSize: 12, fill: '#2c3e50', rotation: -90, fontFamily: 'Inter', fontStyle: '600'
                         });
                         layer.add(heightText);
                     }
@@ -1267,59 +1164,18 @@
                 currentY += rowHeight;
             });
 
-            // Enhanced overall dimension labels with arrows and professional styling
-            // Overall width with arrow
-            const widthArrow = new Konva.Arrow({
-                x: offsetX + winWidth / 2,
-                y: offsetY + winHeight + 40,
-                points: [0, 0, 0, 10],
-                pointerLength: 8,
-                pointerWidth: 6,
-                fill: '#2c3e50',
-                stroke: '#2c3e50',
-                strokeWidth: 2
-            });
-            layer.add(widthArrow);
+            // Overall width label
             const overallWidthText = new Konva.Text({
-                x: offsetX + winWidth / 2,
-                y: offsetY + winHeight + 65,
-                text: `Overall Width: ${totalWidth} mm`,
-                fontSize: 14,
-                fill: '#1a252f',
-                width: winWidth,
-                align: 'center',
-                fontFamily: 'Inter',
-                fontStyle: '700',
-                shadowColor: 'rgba(0,0,0,0.1)',
-                shadowBlur: 3
+                x: offsetX, y: offsetY + winHeight + 35, text: `Overall Width: ${totalWidth} mm`,
+                fontSize: 14, fill: '#1a252f', width: winWidth, align: 'center', fontFamily: 'Inter', fontStyle: '700'
             });
             layer.add(overallWidthText);
 
-            // Overall height with vertical arrow
-            const heightArrow = new Konva.Arrow({
-                x: offsetX - 30,
-                y: offsetY + winHeight / 2,
-                points: [0, 0, 0, -15],
-                pointerLength: 8,
-                pointerWidth: 6,
-                fill: '#2c3e50',
-                stroke: '#2c3e50',
-                strokeWidth: 2,
-                rotation: -90
-            });
-            layer.add(heightArrow);
+            // Overall height label
             const overallHeightText = new Konva.Text({
-                x: offsetX - 65,
-                y: offsetY + winHeight / 2 + 5,
-                text: `Overall Height: ${totalHeight} mm`,
-                fontSize: 14,
-                fill: '#1a252f',
-                rotation: -90,
-                offsetY: -35,
-                fontFamily: 'Inter',
-                fontStyle: '700',
-                shadowColor: 'rgba(0,0,0,0.1)',
-                shadowBlur: 3
+                x: offsetX - 35, y: offsetY + winHeight / 2, text: `Overall Height: ${totalHeight} mm`,
+                fontSize: 14, fill: '#1a252f', rotation: -90, fontFamily: 'Inter', fontStyle: '700',
+                offsetY: 100, width: winHeight, align: 'center'
             });
             layer.add(overallHeightText);
 
@@ -1342,7 +1198,6 @@
             debounceTimer = setTimeout(() => calculatePrice(false), 500);
         }
 
-        // --- getFormData to include split percentages ---
         function getFormData() {
             const data = {
                 quoteName: document.getElementById('quote-name').value,
@@ -1367,22 +1222,24 @@
                     let hSplits = [];
                     if (panes.length > 1) {
                         for (let j = 1; j < panes.length; j++) {
-                            hSplits.push(parseFloat(document.getElementById(`h-split-${roomId}-${w}-${j}`)?.value) / 100);
+                            const slider = document.getElementById(`h-split-${roomId}-${w}-${j}`);
+                            if (slider) hSplits.push(parseFloat(slider.value) / 100);
                         }
                     }
 
                     let vSplits = [];
                     if (rows.length > 1) {
                         for (let j = 1; j < rows.length; j++) {
-                            vSplits.push(parseFloat(document.getElementById(`v-split-${roomId}-${w}-${j}`)?.value) / 100);
+                            const slider = document.getElementById(`v-split-${roomId}-${w}-${j}`);
+                            if (slider) vSplits.push(parseFloat(slider.value) / 100);
                         }
                     }
 
                     roomData.windows.push({
                         style: style,
-                        height: parseFloat(document.getElementById(`window-height-${roomId}-${w}`)?.value) || 0,
-                        width: parseFloat(document.getElementById(`window-width-${roomId}-${w}`)?.value) || 0,
-                        hSplits: hSplits.sort((a, b) => a - b), // Send sorted split data
+                        height: Math.max(100, parseFloat(document.getElementById(`window-height-${roomId}-${w}`)?.value) || 0),
+                        width: Math.max(100, parseFloat(document.getElementById(`window-width-${roomId}-${w}`)?.value) || 0),
+                        hSplits: hSplits.sort((a, b) => a - b),
                         vSplits: vSplits.sort((a, b) => a - b)
                     });
                 }
@@ -1441,7 +1298,7 @@
             data.rooms.forEach((room, rIdx) => {
                 if (room.windows.length === 0) errors.push(`Room "${room.name}" has no windows.`);
                 room.windows.forEach((win, wIdx) => {
-                    if (win.height <= 0 || win.width <= 0) errors.push(`Room "${room.name}", Window ${wIdx + 1}: Please enter valid positive dimensions.`);
+                    if (win.height < 100 || win.width < 100) errors.push(`Room "${room.name}", Window ${wIdx + 1}: Please enter valid dimensions (min 100mm).`);
                 });
             });
             return errors;
@@ -1562,23 +1419,25 @@
                         const winId = wIdx + 1;
                         document.getElementById(`window-style-${currentRoomId}-${winId}`).value = win.style;
                         refreshCustomSelect(`window-style-${currentRoomId}-${winId}`);
-                        document.getElementById(`window-height-${currentRoomId}-${winId}`).value = win.height;
-                        document.getElementById(`window-width-${currentRoomId}-${winId}`).value = win.width;
+                        document.getElementById(`window-height-${currentRoomId}-${winId}`).value = Math.max(100, win.height);
+                        document.getElementById(`window-width-${currentRoomId}-${winId}`).value = Math.max(100, win.width);
 
                         // Load and set slider values
                         updateDimensionControls(currentRoomId, winId);
                         (win.hSplits || []).forEach((split, sIdx) => {
                             const slider = document.getElementById(`h-split-${currentRoomId}-${winId}-${sIdx + 1}`);
                             if (slider) {
-                                slider.value = split * 100;
-                                updateSliderValue(`h-split-${currentRoomId}-${winId}-${sIdx + 1}`, slider.value);
+                                const val = Math.max(10, Math.min(90, split * 100));
+                                slider.value = val;
+                                updateSliderValue(slider.id, val);
                             }
                         });
                         (win.vSplits || []).forEach((split, sIdx) => {
                             const slider = document.getElementById(`v-split-${currentRoomId}-${winId}-${sIdx + 1}`);
                             if (slider) {
-                                slider.value = split * 100;
-                                updateSliderValue(`v-split-${currentRoomId}-${winId}-${sIdx + 1}`, slider.value);
+                                const val = Math.max(10, Math.min(90, split * 100));
+                                slider.value = val;
+                                updateSliderValue(slider.id, val);
                             }
                         });
 
