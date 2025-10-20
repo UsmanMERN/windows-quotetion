@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapLock Window CPQ Tool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/konva@9/konva.min.js"></script>
+    <style>
+        :root {
+            --e-global-color-primary: #023047;
+            --e-global-color-secondary: #2A2D30;
+            --e-global-color-text: #000000;
+            --e-global-color-accent: #219ebc;
+            --e-global-color-476a1a44: #FFF;
+            --e-global-color-75f2ba0: #F2F5F6;
+            --e-global-color-487da7a: #8ECAE6;
+            --e-global-color-71f76ae: #FAF2C3;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--e-global-color-75f2ba0);
+            margin: 0;
+            padding: 10px;
+            color: var(--e-global-color-text);
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background-color: var(--e-global-color-476a1a44);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 8px;
+            background: var(--e-global-color-476a1a44);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            color: var(--e-global-color-primary);
+            margin: 0 0 15px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: var(--e-global-color-primary);
+        }
+
+        h2 {
+            border-bottom: 2px solid var(--e-global-color-487da7a);
+            padding-bottom: 10px;
+            margin-top: 0;
+            font-size: 1.8em;
+            position: relative;
+        }
+
+        h2::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 50px;
+            height: 2px;
+            background: var(--e-global-color-accent);
+            border-radius: 1px;
+        }
+
+        h3 {
+            font-size: 1.4em;
+            color: var(--e-global-color-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h4 {
+            font-size: 1.2em;
+            color: var(--e-global-color-primary);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--e-global-color-secondary);
+            font-size: 0.95em;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 12px 14px;
+            margin-bottom: 18px;
+            border-radius: 6px;
+            border: 1px solid #d0d0d0;
+            box-sizing: border-box;
+            font-size: 15px;
+            background-color: var(--e-global-color-75f2ba0);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--e-global-color-accent);
+            box-shadow: 0 0 0 3px rgba(33, 158, 188, 0.1);
+        }
+
+        input::placeholder {
+            color: #aaa;
+        }
+
+        /* Custom Select Styles */
+        .custom-select {
+            position: relative;
+            width: 100%;
+            margin-bottom: 18px;
+        }
+
+        .custom-select select {
+            display: none;
+        }
+
+        .select-selected {
+            background-color: var(--e-global-color-75f2ba0);
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            padding: 12px 14px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 15px;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .select-selected:hover {
+            border-color: var(--e-global-color-accent);
+        }
+
+        .select-selected.open {
+            border-color: var(--e-global-color-accent);
+            box-shadow: 0 0 0 3px rgba(33, 158, 188, 0.1);
+        }
+
+        .select-selected::after {
+            content: '▼';
+            font-size: 12px;
+            color: var(--e-global-color-secondary);
+            transition: transform 0.2s;
+        }
+
+        .select-selected.open::after {
+            transform: rotate(180deg);
+        }
+
+        .select-items {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background-color: var(--e-global-color-476a1a44);
+            border: 1px solid var(--e-global-color-accent);
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            max-height: 180px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .select-items div {
+            padding: 12px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid #e0e0e0;
+            background-color: var(--e-global-color-476a1a44);
+            font-size: 15px;
+            transition: background-color 0.2s;
+        }
+
+        .select-items div:last-child {
+            border-bottom: none;
+        }
+
+        .select-items div:hover {
+            background-color: var(--e-global-color-487da7a);
+            color: var(--e-global-color-primary);
+        }
+
+        .select-items div.same-as-selected {
+            background-color: var(--e-global-color-71f76ae);
+            font-weight: 500;
+        }
+
+        button {
+            background-color: var(--e-global-color-primary);
+            color: var(--e-global-color-476a1a44);
+            padding: 12px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--e-global-color-accent);
+            transform: translateY(-2px);
+        }
+
+        .remove-btn,
+        .delete-btn {
+            background-color: transparent;
+            color: #ff0000;
+            font-size: 20px;
+            padding: 0;
+            margin-left: 10px;
+            cursor: pointer;
+            border: none;
+            font-weight: bold;
+        }
+
+        .remove-btn:hover,
+        .delete-btn:hover {
+            color: #cc0000;
+            transform: none;
+        }
+
+        #price-display {
+            margin-top: 30px;
+            padding: 25px;
+            background-color: var(--e-global-color-75f2ba0);
+            border: 1px solid var(--e-global-color-487da7a);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        #error-messages {
+            color: #D8000C;
+            background-color: #FFD2D2;
+            margin: -25px -25px 20px -25px;
+            padding: 15px 25px;
+            border-radius: 8px 8px 0 0;
+            border-bottom: 1px solid #D8000C;
+        }
+
+        .price-line {
+            display: flex;
+            justify-content: space-between;
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid #d0d0d0;
+        }
+
+        .price-line.total {
+            font-weight: 700;
+            font-size: 1.5em;
+            margin-top: 20px;
+            color: var(--e-global-color-primary);
+            background-color: var(--e-global-color-71f76ae);
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--e-global-color-487da7a);
+        }
+
+        .room-section {
+            background-color: var(--e-global-color-476a1a44);
+            border: 1px solid #e0e0e0;
+        }
+
+        .window-subsection {
+            border-top: 1px dashed #d0d0d0;
+            padding-top: 20px;
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 25px;
+        }
+
+        .window-subsection:first-child {
+            border-top: none;
+            padding-top: 0;
+            margin-top: 0;
+        }
+
+        .window-inputs {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .window-visual {
+            flex: 0 0 300px;
+            height: 280px;
+            border: 1px solid #d0d0d0;
+            border-radius: 6px;
+            background: #f8f8f8;
+            overflow: hidden;
+        }
+
+        hr {
+            border: none;
+            height: 1px;
+            background-color: var(--e-global-color-487da7a);
+            margin: 30px 0;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+            }
+
+            .container {
+                padding: 20px;
+                border-radius: 8px;
+            }
+
+            h1 {
+                font-size: 2em;
+            }
+
+            h2 {
+                font-size: 1.5em;
+            }
+
+            .price-line {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+
+            .price-line.total {
+                font-size: 1.3em;
+            }
+
+            .window-subsection {
+                flex-direction: column;
+            }
+
+            .window-visual {
+                width: 100%;
+                height: 280px;
+            }
+        }
+
+        button[onclick="addRoom()"] {
+            width: 100%;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+
+        button.calculate {
+            width: 100%;
+            font-size: 18px;
+            padding: 16px;
+            margin: 20px 0;
+        }
+
+        #my-quotes {
+            margin-top: 50px;
+        }
+
+        .quote-item {
+            padding: 12px;
+            border: 1px solid #d0d0d0;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 6px;
+            background: var(--e-global-color-75f2ba0);
+        }
+
+        .pdf-buttons {
+            margin-top: 25px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>CapLock Window CPQ Tool</h1>
+        <div id="step1" class="section">
+            <h2>Step 1: Project Details</h2>
+            <label for="quote-name">Quote Name:</label>
+            <input type="text" id="quote-name" placeholder="e.g., Smith Residence Project">
+            <label for="existing-frame">1. Is the existing frame Aluminium or Timber?</label>
+            <div class="custom-select" id="custom-existing-frame">
+                <select id="existing-frame">
+                    <option value="aluminium">Aluminium (Standard)</option>
+                    <option value="timber">Timber (-60mm Deduction)</option>
+                </select>
+            </div>
+            <label for="frame-color">2. Colour of new CapLock frame?</label>
+            <input type="color" id="frame-color" value="#ffffff">
+            <label for="glazing-type">3. Default glazing for all windows?</label>
+            <div class="custom-select" id="custom-glazing-type">
+                <select id="glazing-type">
+                    <option value="single_glazed">6mm Laminated (Standard)</option>
+                    <option value="toughened">6mm Toughened</option>
+                    <option value="double_glazed">Double Glazed</option>
+                    <option value="acoustic">Acoustic Glazed</option>
+                </select>
+            </div>
+            <label for="installation-costs">4. Add installation costs? ($800 per window)</label>
+            <div class="custom-select" id="custom-installation-costs">
+                <select id="installation-costs">
+                    <option value="yes">Yes</option>
+                    <option value="no">No</option>
+                </select>
+            </div>
+            <div class="nav-buttons">
+                <button onclick="nextStep(1)">Next: Room Configuration</button>
+            </div>
+        </div>
+        <div id="step2" class="section" style="display:none;">
+            <h2>Step 2: Room & Window Configuration</h2>
+            <div id="rooms-container"></div>
+            <button onclick="addRoom()">+ Add Another Room</button>
+            <div class="nav-buttons">
+                <button onclick="prevStep(2)">Previous</button>
+                <button onclick="nextStep(2)">Next: Review & Calculate</button>
+            </div>
+        </div>
+        <div id="step3" class="section" style="display:none;">
+            <h2>Step 3: Review & Quote</h2>
+            <button class="calculate" onclick="calculatePrice()">Calculate Total Price</button>
+            <button onclick="saveQuote()">Save Quote</button>
+            <div id="price-display" style="display:none;">
+                <div id="error-messages"></div>
+                <h2>Quote Summary</h2>
+                <div class="price-line">
+                    <span>Materials & Components Subtotal:</span>
+                    <span id="subtotal-price"></span>
+                </div>
+                <div class="price-line">
+                    <span>Waste & Profit Markup:</span>
+                    <span id="markup-price"></span>
+                </div>
+                <div class="price-line">
+                    <span>Factory Build Costs:</span>
+                    <span id="factory-cost"></span>
+                </div>
+                <div class="price-line">
+                    <span><strong>Total Base Price (ex. Install):</strong></span>
+                    <span id="base-price"></span>
+                </div>
+                <div class="price-line">
+                    <span>Installation Cost:</span>
+                    <span id="install-cost"></span>
+                </div>
+                <hr>
+                <div class="price-line total">
+                    <span>FINAL ESTIMATED TOTAL:</span>
+                    <span id="final-total"></span>
+                </div>
+                <p
+                    style="margin-top: 20px; text-align: center; font-style: italic; color: var(--e-global-color-secondary); font-size: 0.95em;">
+                    <em>This is an estimated price based on current rates.
+                        Please submit a quote request for an official offer.</em>
+                </p>
+                <div class="pdf-buttons" id="pdf-buttons" style="display:none;">
+                    <button onclick="downloadPDF('customer')">Download Customer PDF</button>
+                    <button onclick="downloadPDF('sales')">Download Sales PDF</button>
+                    <button onclick="downloadPDF('production')">Download Production PDF</button>
+                </div>
+            </div>
+            <div class="nav-buttons">
+                <button onclick="prevStep(3)">Previous</button>
+            </div>
+        </div>
+        <div id="my-quotes" class="section">
+            <h2>My Quotes</h2>
+            <div id="quotes-list"></div>
+        </div>
+    </div>
+    <script>
+        // --- Global Variables ---
+        let roomCount = 0;
+        let currentQuoteId = null;
+        let debounceTimer;
+        const API_URL = 'http://localhost:3000';
+        // --- Custom Select Functionality ---
+        function createCustomSelect(selectElement, customContainerId) {
+            const select = selectElement;
+            if (!select) return;
+            const container = document.getElementById(customContainerId);
+            if (!container) return;
+            container.querySelectorAll('.select-selected, .select-items').forEach(el => el.remove());
+            const selectedOption = select.options[select.selectedIndex] || select.options[0];
+            const selectedDiv = document.createElement('div');
+            selectedDiv.className = 'select-selected';
+            selectedDiv.innerHTML = `<span>${selectedOption.text}</span>`;
+            container.appendChild(selectedDiv);
+            const itemsDiv = document.createElement('div');
+            itemsDiv.className = 'select-items';
+            Array.from(select.options).forEach(option => {
+                const itemDiv = document.createElement('div');
+                itemDiv.innerHTML = option.text;
+                if (option.value === select.value) {
+                    itemDiv.classList.add('same-as-selected');
+                }
+                itemDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    select.value = option.value;
+                    selectedDiv.firstChild.textContent = option.text;
+                    itemsDiv.querySelector('.same-as-selected')?.classList.remove('same-as-selected');
+                    itemDiv.classList.add('same-as-selected');
+                    closeAllCustomSelects();
+                    select.dispatchEvent(new Event('change'));
+                    autoCalculate();
+                });
+                itemsDiv.appendChild(itemDiv);
+            });
+            container.appendChild(itemsDiv);
+            selectedDiv.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isCurrentlyOpen = itemsDiv.style.display === 'block';
+                closeAllCustomSelects();
+                if (!isCurrentlyOpen) {
+                    itemsDiv.style.display = 'block';
+                    selectedDiv.classList.add('open');
+                }
+            });
+        }
+        function closeAllCustomSelects() {
+            document.querySelectorAll('.select-items').forEach(items => items.style.display = 'none');
+            document.querySelectorAll('.select-selected').forEach(selected => selected.classList.remove('open'));
+        }
+        document.addEventListener('click', closeAllCustomSelects);
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', function () {
+            createCustomSelect(document.getElementById('existing-frame'), 'custom-existing-frame');
+            createCustomSelect(document.getElementById('glazing-type'), 'custom-glazing-type');
+            createCustomSelect(document.getElementById('installation-costs'), 'custom-installation-costs');
+            addRoom();
+            loadQuotes();
+            document.querySelectorAll('input, select').forEach(el => {
+                el.addEventListener('input', autoCalculate);
+                el.addEventListener('change', autoCalculate);
+            });
+        });
+        // --- Room and Window Management ---
+        function addRoom() {
+            roomCount++;
+            const roomsContainer = document.getElementById('rooms-container');
+            const roomDiv = document.createElement('div');
+            roomDiv.className = 'section room-section';
+            roomDiv.id = `room-${roomCount}`;
+            roomDiv.innerHTML = `
+                <h3>Room ${roomCount} <button class="remove-btn" onclick="removeRoom(this)">&times;</button></h3>
+                <label for="room-name-${roomCount}">Room Name:</label>
+                <input type="text" id="room-name-${roomCount}" placeholder="e.g., Master Bedroom, Lounge">
+                <label for="window-sets-${roomCount}">Number of Window Sets:</label>
+                <input type="number" id="window-sets-${roomCount}" value="1" min="1" oninput="addWindows(${roomCount})">
+                <div id="windows-container-${roomCount}"></div>
+            `;
+            roomsContainer.appendChild(roomDiv);
+            addWindows(roomCount);
+            autoCalculate();
+        }
+        function reindexRooms() {
+            const allRooms = document.querySelectorAll('#rooms-container .room-section');
+            allRooms.forEach((room, index) => {
+                const newRoomId = index + 1;
+                room.id = `room-${newRoomId}`;
+                room.querySelector('h3').innerHTML = `Room ${newRoomId} <button class="remove-btn" onclick="removeRoom(this)">&times;</button>`;
+                ['room-name', 'window-sets', 'windows-container'].forEach(baseId => {
+                    const el = room.querySelector(`[id^="${baseId}-"]`);
+                    const oldId = el.id;
+                    if (el) el.id = `${baseId}-${newRoomId}`;
+                    const label = room.querySelector(`label[for="${oldId}"]`);
+                    if (label) label.setAttribute('for', el.id);
+                });
+                const wsInput = room.querySelector(`#window-sets-${newRoomId}`);
+                if (wsInput) wsInput.setAttribute('oninput', `addWindows(${newRoomId})`);
+            });
+            roomCount = allRooms.length;
+        }
+        function removeRoom(button) {
+            button.closest('.room-section').remove();
+            reindexRooms();
+            autoCalculate();
+        }
+        function addWindows(roomId) {
+            const windowSets = parseInt(document.getElementById(`window-sets-${roomId}`)?.value) || 1;
+            const windowsContainer = document.getElementById(`windows-container-${roomId}`);
+            if (!windowsContainer) return;
+            windowsContainer.innerHTML = '';
+            for (let i = 1; i <= windowSets; i++) {
+                const windowDiv = document.createElement('div');
+                windowDiv.className = 'window-subsection';
+                const selectId = `window-style-${roomId}-${i}`;
+                const customSelectId = `custom-window-style-${roomId}-${i}`;
+                const containerId = `konva-container-${roomId}-${i}`;
+                windowDiv.innerHTML = `
+                    <div class="window-inputs">
+                        <h4>Window Set ${i}</h4>
+                        <label for="${selectId}">Window Style:</label>
+                        <div class="custom-select" id="${customSelectId}">
+                            <select id="${selectId}">
+                                <option value="A">A (Awning)</option><option value="F">F (Fixed)</option><option value="S">S (Sliding)</option><option value="A-F">A-F</option><option value="A-A">A-A</option><option value="A-F-A">A-F-A</option><option value="F-A-F">F-A-F</option><option value="A-A-A">A-A-A</option><option value="A/F">A/F</option><option value="A-F/F-F">A-F/F-F</option><option value="A-F-A/F-F-F">A-F-A/F-F-F</option><option value="F-F">F-F</option><option value="F-F-F">F-F-F</option><option value="F-F-F-F">F-F-F-F</option><option value="F/F">F/F</option><option value="F-F/F-F">F-F/F-F</option><option value="F-F-F/F-F-F">F-F-F/F-F-F</option><option value="S-F">S-F</option><option value="S-F-S">S-F-S</option><option value="S-F-S/F-F-F">S-F-S/F-F-F</option><option value="S-F/F">S-F/F</option><option value="S-F/F-F">S-F/F-F</option>
+                            </select>
+                        </div>
+                        <label for="window-height-${roomId}-${i}">Height (mm):</label>
+                        <input type="number" id="window-height-${roomId}-${i}" placeholder="e.g., 1800" oninput="drawWindow(${roomId}, ${i})">
+                        <label for="window-width-${roomId}-${i}">Width (mm):</label>
+                        <input type="number" id="window-width-${roomId}-${i}" placeholder="e.g., 1200" oninput="drawWindow(${roomId}, ${i})">
+                    </div>
+                    <div id="${containerId}" class="window-visual"></div>
+                `;
+                windowsContainer.appendChild(windowDiv);
+                const selectEl = document.getElementById(selectId);
+                createCustomSelect(selectEl, customSelectId);
+                selectEl.addEventListener('change', () => drawWindow(roomId, i));
+                drawWindow(roomId, i);
+            }
+            autoCalculate();
+        }
+        // --- Visualizer ---
+        function drawWindow(roomId, i) {
+            const style = document.getElementById(`window-style-${roomId}-${i}`)?.value || 'A';
+            const heightInput = parseFloat(document.getElementById(`window-height-${roomId}-${i}`)?.value) || 1800;
+            const widthInput = parseFloat(document.getElementById(`window-width-${roomId}-${i}`)?.value) || 1200;
+            const frameColor = document.getElementById('frame-color').value;
+            const containerId = `konva-container-${roomId}-${i}`;
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+            const stageWidth = 300, stageHeight = 280, padding = 40;
+            const drawWidth = stageWidth - padding * 2, drawHeight = stageHeight - padding * 2 - 40;
+            const scale = Math.min(drawWidth / widthInput, drawHeight / heightInput);
+            const winWidth = widthInput * scale, winHeight = heightInput * scale;
+            const offsetX = (stageWidth - winWidth) / 2, offsetY = (stageHeight - winHeight) / 2 - 10;
+            const stage = new Konva.Stage({ container: containerId, width: stageWidth, height: stageHeight });
+            const layer = new Konva.Layer();
+            stage.add(layer);
+            layer.add(new Konva.Rect({ x: offsetX, y: offsetY, width: winWidth, height: winHeight, stroke: frameColor, strokeWidth: 4, fill: 'rgba(139, 198, 230, 0.2)' }));
+            const rows = style.split('/');
+            rows.forEach((row, r) => {
+                const ry = offsetY + r * (winHeight / rows.length);
+                if (r > 0) layer.add(new Konva.Line({ points: [offsetX, ry, offsetX + winWidth, ry], stroke: frameColor, strokeWidth: 3 }));
+                const panes = row.split('-');
+                panes.forEach((paneType, p) => {
+                    const px = offsetX + p * (winWidth / panes.length);
+                    if (p > 0) layer.add(new Konva.Line({ points: [px, ry, px, ry + (winHeight / rows.length)], stroke: frameColor, strokeWidth: 3 }));
+                });
+            });
+            // Add symbols for panes
+            rows.forEach((row, r) => {
+                const rowCenterY = offsetY + r * (winHeight / rows.length) + (winHeight / rows.length) / 2;
+                const panes = row.split('-');
+                panes.forEach((paneType, p) => {
+                    const paneCenterX = offsetX + p * (winWidth / panes.length) + (winWidth / panes.length) / 2;
+                    const paneW = winWidth / panes.length;
+                    const paneH = winHeight / rows.length;
+                    // Scale symbol size based on pane size
+                    const symbolScale = Math.min(paneW, paneH) / 200; // Adjust scale as needed
+                    if (paneType === 'S') {
+                        // Horizontal arrows for sliding
+                        // Left arrow (pointing left)
+                        layer.add(new Konva.Arrow({
+                            x: paneCenterX - 25 * symbolScale,
+                            y: rowCenterY,
+                            points: [0, -5, 15, 0, 0, 5],
+                            pointerLength: 8 * symbolScale,
+                            pointerWidth: 4 * symbolScale,
+                            fill: 'black',
+                            stroke: 'black',
+                            strokeWidth: 1 * symbolScale
+                        }).scale({ x: -1, y: 1 }));
+                        // Right arrow (pointing right)
+                        layer.add(new Konva.Arrow({
+                            x: paneCenterX + 10 * symbolScale,
+                            y: rowCenterY,
+                            points: [0, -5, 15, 0, 0, 5],
+                            pointerLength: 8 * symbolScale,
+                            pointerWidth: 4 * symbolScale,
+                            fill: 'black',
+                            stroke: 'black',
+                            strokeWidth: 1 * symbolScale
+                        }));
+                    } else if (paneType === 'F') {
+                        // Vertical tilted dashed line for fixed
+                        layer.add(new Konva.Line({
+                            points: [0, -15 * symbolScale, 15 * symbolScale, 15 * symbolScale],
+                            x: paneCenterX,
+                            y: rowCenterY,
+                            stroke: 'black',
+                            strokeWidth: 2 * symbolScale,
+                            lineDash: [5 * symbolScale, 5 * symbolScale]
+                        }));
+                    } else if (paneType === 'A') {
+                        // V shape for awning/other
+                        layer.add(new Konva.Line({
+                            points: [-10 * symbolScale, 10 * symbolScale, 0, -15 * symbolScale, 10 * symbolScale, 10 * symbolScale],
+                            x: paneCenterX,
+                            y: rowCenterY,
+                            stroke: 'black',
+                            strokeWidth: 2 * symbolScale,
+                            fill: 'transparent',
+                            closed: true
+                        }));
+                    }
+                });
+            });
+            // Add dimension labels
+            // Width label at bottom
+            layer.add(new Konva.Text({
+                x: offsetX,
+                y: offsetY + winHeight + 15,
+                text: `${widthInput.toFixed(0)} mm`,
+                fontSize: 12,
+                fill: 'black',
+                width: winWidth,
+                align: 'center',
+                fontFamily: 'Arial'
+            }));
+            // Height label on left (rotated)
+            layer.add(new Konva.Text({
+                x: offsetX - 35,
+                y: offsetY + winHeight / 2,
+                text: `${heightInput.toFixed(0)} mm`,
+                fontSize: 12,
+                fill: 'black',
+                rotation: -90,
+                offsetY: 20, // Adjust to center
+                fontFamily: 'Arial'
+            }));
+            layer.draw();
+            autoCalculate();
+        }
+        // --- Navigation ---
+        function nextStep(step) {
+            document.getElementById(`step${step}`).style.display = 'none';
+            document.getElementById(`step${step + 1}`).style.display = 'block';
+            if (step === 2) calculatePrice();
+        }
+        function prevStep(step) {
+            document.getElementById(`step${step}`).style.display = 'none';
+            document.getElementById(`step${step - 1}`).style.display = 'block';
+        }
+        // --- Data Handling & Calculation ---
+        function autoCalculate() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => calculatePrice(false), 500);
+        }
+        function getFormData() {
+            const data = {
+                quoteName: document.getElementById('quote-name').value,
+                existingFrame: document.getElementById('existing-frame').value,
+                frameColor: document.getElementById('frame-color').value,
+                glazingType: document.getElementById('glazing-type').value,
+                installationCosts: document.getElementById('installation-costs').value,
+                rooms: []
+            };
+            document.querySelectorAll('.room-section').forEach((room, index) => {
+                const roomId = index + 1;
+                const roomData = {
+                    name: document.getElementById(`room-name-${roomId}`)?.value || `Room ${roomId}`,
+                    windows: []
+                };
+                const windowSets = parseInt(document.getElementById(`window-sets-${roomId}`)?.value) || 0;
+                for (let w = 1; w <= windowSets; w++) {
+                    roomData.windows.push({
+                        style: document.getElementById(`window-style-${roomId}-${w}`)?.value || 'A',
+                        height: parseFloat(document.getElementById(`window-height-${roomId}-${w}`)?.value) || 0,
+                        width: parseFloat(document.getElementById(`window-width-${roomId}-${w}`)?.value) || 0,
+                    });
+                }
+                data.rooms.push(roomData);
+            });
+            return data;
+        }
+        async function calculatePrice(showPdfButtons = true) {
+            const data = getFormData();
+            const errors = validateData(data);
+            const errorDiv = document.getElementById('error-messages');
+            const priceDisplay = document.getElementById('price-display');
+            errorDiv.style.display = 'none';
+            priceDisplay.style.display = 'block';
+            if (errors.length > 0) {
+                errorDiv.innerHTML = errors.join('<br>');
+                errorDiv.style.display = 'block';
+                hidePriceLines();
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/calculate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) throw new Error('Calculation server error');
+                const prices = await response.json();
+                displayPrices(prices);
+                showPriceLines();
+                if (showPdfButtons && currentQuoteId) {
+                    document.getElementById('pdf-buttons').style.display = 'flex';
+                } else if (showPdfButtons && !currentQuoteId) {
+                    errorDiv.innerHTML = "Please save the quote to enable PDF downloads.";
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error calculating price:', error);
+                errorDiv.textContent = "Could not connect to the calculation server.";
+                errorDiv.style.display = 'block';
+            }
+        }
+        function displayPrices(prices) {
+            document.getElementById('price-display').style.display = 'block';
+            document.getElementById('subtotal-price').textContent = `$${prices.subtotal.toFixed(2)}`;
+            document.getElementById('markup-price').textContent = `$${prices.markup.toFixed(2)}`;
+            document.getElementById('factory-cost').textContent = `$${prices.factory.toFixed(2)}`;
+            document.getElementById('base-price').textContent = `$${prices.base.toFixed(2)}`;
+            document.getElementById('install-cost').textContent = `$${prices.install.toFixed(2)}`;
+            document.getElementById('final-total').textContent = `$${prices.final.toFixed(2)}`;
+        }
+        function validateData(data) {
+            const errors = [];
+            if (!data.quoteName) errors.push('Please enter a quote name.');
+            data.rooms.forEach((room, rIdx) => {
+                if (room.windows.length === 0) errors.push(`Room "${room.name}" has no windows.`);
+                room.windows.forEach((win, wIdx) => {
+                    if (win.height <= 0 || win.width <= 0) errors.push(`Room "${room.name}", Window ${wIdx + 1}: Please enter valid positive dimensions.`);
+                });
+            });
+            return errors;
+        }
+        function hidePriceLines() {
+            document.querySelectorAll('#price-display .price-line, #price-display hr, #price-display p, #price-display h2, #pdf-buttons').forEach(el => el.style.display = 'none');
+        }
+        function showPriceLines() {
+            document.querySelectorAll('#price-display .price-line, #price-display hr, #price-display p, #price-display h2').forEach(el => el.style.display = 'flex');
+        }
+        // --- Quote Persistence ---
+        async function saveQuote() {
+            const data = getFormData();
+            const validationErrors = validateData(data);
+            const errorDiv = document.getElementById('error-messages');
+            if (validationErrors.length > 0) {
+                errorDiv.innerHTML = validationErrors.join('<br>');
+                errorDiv.style.display = 'block';
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/save-quote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                if (!response.ok) throw new Error(await response.text());
+                const result = await response.json();
+                currentQuoteId = result.id;
+                errorDiv.innerHTML = `Quote '${data.quoteName}' saved successfully! (Version: ${result.version})`;
+                errorDiv.style.backgroundColor = '#DFF2BF';
+                errorDiv.style.color = '#4F8A10';
+                errorDiv.style.borderColor = '#4F8A10';
+                errorDiv.style.display = 'block';
+                document.getElementById('pdf-buttons').style.display = 'flex';
+                loadQuotes();
+            } catch (error) {
+                errorDiv.innerHTML = 'Error saving quote: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        async function loadQuotes() {
+            try {
+                const response = await fetch(`${API_URL}/quotes`);
+                const quotes = await response.json();
+                const list = document.getElementById('quotes-list');
+                list.innerHTML = '';
+                const grouped = quotes.reduce((acc, q) => {
+                    (acc[q.quoteName] = acc[q.quoteName] || []).push(q);
+                    return acc;
+                }, {});
+                for (let name in grouped) {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.innerHTML = `<h3>${name}</h3>`;
+                    grouped[name].sort((a, b) => b.version - a.version).forEach(q => {
+                        const item = document.createElement('div');
+                        item.className = 'quote-item';
+                        item.innerHTML = `<span>Version ${q.version} - ${new Date(q.date).toLocaleDateString()} - Total: $${q.total.toFixed(2)}</span>
+                                          <button onclick="loadQuote(${q.id})">Load</button>
+                                          <button class="delete-btn" onclick="deleteQuote(${q.id})">&times;</button>`;
+                        groupDiv.appendChild(item);
+                    });
+                    list.appendChild(groupDiv);
+                }
+            } catch (error) {
+                console.error('Error loading quotes:', error);
+            }
+        }
+        async function deleteQuote(id) {
+            if (!confirm('Are you sure you want to delete this quote?')) return;
+            try {
+                const response = await fetch(`${API_URL}/quote/${id}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error(await response.text());
+                loadQuotes();
+                if (currentQuoteId === id) {
+                    currentQuoteId = null;
+                    document.getElementById('pdf-buttons').style.display = 'none';
+                }
+            } catch (error) {
+                const errorDiv = document.getElementById('error-messages');
+                errorDiv.innerHTML = 'Error deleting quote: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        async function loadQuote(id) {
+            try {
+                const response = await fetch(`${API_URL}/quote/${id}`);
+                const quote = await response.json();
+                const data = JSON.parse(quote.data);
+                currentQuoteId = quote.id;
+                document.getElementById('quote-name').value = quote.quoteName;
+                document.getElementById('existing-frame').value = data.existingFrame;
+                refreshCustomSelect('existing-frame');
+                document.getElementById('frame-color').value = data.frameColor;
+                document.getElementById('glazing-type').value = data.glazingType;
+                refreshCustomSelect('glazing-type');
+                document.getElementById('installation-costs').value = data.installationCosts;
+                refreshCustomSelect('installation-costs');
+                roomCount = 0;
+                document.getElementById('rooms-container').innerHTML = '';
+                data.rooms.forEach((roomData, rIdx) => {
+                    addRoom();
+                    const currentRoomId = rIdx + 1;
+                    document.getElementById(`room-name-${currentRoomId}`).value = roomData.name;
+                    document.getElementById(`window-sets-${currentRoomId}`).value = roomData.windows.length;
+                    addWindows(currentRoomId);
+                    roomData.windows.forEach((win, wIdx) => {
+                        const winId = wIdx + 1;
+                        document.getElementById(`window-style-${currentRoomId}-${winId}`).value = win.style;
+                        refreshCustomSelect(`window-style-${currentRoomId}-${winId}`);
+                        document.getElementById(`window-height-${currentRoomId}-${winId}`).value = win.height;
+                        document.getElementById(`window-width-${currentRoomId}-${winId}`).value = win.width;
+                        drawWindow(currentRoomId, winId);
+                    });
+                });
+                await calculatePrice();
+                document.getElementById('step1').style.display = 'none';
+                document.getElementById('step2').style.display = 'none';
+                document.getElementById('step3').style.display = 'block';
+            } catch (error) {
+                const errorDiv = document.getElementById('error-messages');
+                errorDiv.innerHTML = 'Error loading quote: ' + error.message;
+                errorDiv.style.display = 'block';
+            }
+        }
+        function refreshCustomSelect(selectId) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            const container = select.closest('.custom-select');
+            if (container) createCustomSelect(select, container.id);
+        }
+        function downloadPDF(type) {
+            if (currentQuoteId) {
+                window.open(`${API_URL}/pdf/${currentQuoteId}/${type}`, '_blank');
+            } else {
+                const errorDiv = document.getElementById('error-messages');
+                errorDiv.innerHTML = "Please save the quote before downloading a PDF.";
+                errorDiv.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+
+</html>
